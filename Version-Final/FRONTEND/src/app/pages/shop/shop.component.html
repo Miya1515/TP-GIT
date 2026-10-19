@@ -1,0 +1,184 @@
+<nav class="navbar">
+    <div class="nav-container">
+        <div class="nav-brand"><i class="fas fa-shopping-bag"></i><span>Miya Cosmetics</span></div>
+        <div class="nav-search">
+            <input type="text" id="searchInput" placeholder="Search products" [(ngModel)]="searchKeyword" (keypress.enter)="searchProducts()">
+            <button (click)="searchProducts()"><i class="fas fa-search"></i></button>
+        </div>
+        <div class="nav-actions">
+            <button class="cart-btn" (click)="toggleCart()">
+                <i class="fas fa-shopping-cart"></i>
+                <span class="cart-badge" id="cartBadge">{{ totalQty }}</span>
+            </button>
+            <div id="nav-auth" style="display:flex;align-items:center;gap:8px;">
+                @if (auth.token()) {
+                    <span style="color:#c88a8f;font-weight:bold;margin-right:12px;">👤 {{ auth.nom() }}</span>
+                    @if (auth.role() === 'ADMIN') {
+                        <a routerLink="/admin" style="margin-right:8px;color:#c88a8f;text-decoration:none;font-weight:bold;"><i class="fas fa-user-shield"></i> Admin</a>
+                    }
+                    <button (click)="logout()" style="background:#e8b4b8;color:white;border:none;padding:8px 18px;border-radius:40px;font-weight:bold;cursor:pointer;">
+                        <i class="fas fa-sign-out-alt"></i> Logout
+                    </button>
+                } @else {
+                    <a routerLink="/login" style="padding:8px 16px;border-radius:40px;border:1px solid #e8b4b8;color:#c88a8f;text-decoration:none;font-weight:bold;margin-right:6px;">
+                        <i class="fas fa-sign-in-alt"></i> Login
+                    </a>
+                    <a routerLink="/register" style="padding:8px 16px;border-radius:40px;background:#e8b4b8;color:white;text-decoration:none;font-weight:bold;">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                }
+            </div>
+        </div>
+    </div>
+</nav>
+
+<section class="hero">
+    <div class="hero-content">
+        <h1>Miya Cosmetics — Reinvent Your Beauty</h1>
+        <p>Discover our high-quality products at unbeatable prices</p>
+        <button class="btn-primary" (click)="scrollToProducts()">
+            Discover our products <i class="fas fa-arrow-down"></i>
+        </button>
+    </div>
+</section>
+
+<section class="categories-section">
+    <div class="container">
+        <h2 class="section-title"> Categories</h2>
+        <div class="category-filters" id="categoryFilters">
+            <button class="cat-btn" [class.active]="activeCategory === null" (click)="filterByCategory(null)">
+                <i class="fas fa-th"></i> All
+            </button>
+            @for (cat of categories; track cat.id) {
+                <button class="cat-btn" [class.active]="activeCategory === cat.id" (click)="filterByCategory(cat.id)"><i class="fas {{ cat.icon }}"></i> {{ cat.name }}</button>
+            }
+        </div>
+    </div>
+</section>
+
+<section class="products-section" id="products">
+    <div class="container">
+        <div class="products-header">
+            <h2 class="section-title"> Products</h2>
+            <span class="product-count" id="productCount">{{ productCount }}</span>
+        </div>
+        <div class="products-grid" id="productsGrid">
+            @switch (gridState) {
+                @case ('loading') {
+                    <div class="loading-spinner"><i class="fas fa-spinner fa-pulse"></i><p>Loading...</p></div>
+                }
+                @case ('searching') {
+                    <div class="loading-spinner"><i class="fas fa-spinner fa-pulse"></i></div>
+                }
+                @case ('error') {
+                    <div class="loading-spinner"><i class="fas fa-exclamation-triangle"></i><p>Failed to connect to server</p></div>
+                }
+                @default {
+                    @if (!products.length) {
+                        <div class="loading-spinner"><i class="fas fa-box-open"></i><p>No products found.</p></div>
+                    } @else {
+                        @for (p of products; track p.id) {
+                            <div class="product-card" (click)="openProductModal(p.id)">
+                                <img class="product-image" [src]="p.imageUrl || 'https://via.placeholder.com/400x300?text=No+Image'" [alt]="p.name" (error)="imgFallback($event, 'https://via.placeholder.com/400x300?text=Image+Missing')">
+                                <div class="product-info">
+                                    <div class="product-category">{{ p.category ? p.category.name : 'General' }}</div>
+                                    <div class="product-name">{{ p.name }}</div>
+                                    <div class="product-desc">{{ p.description || '' }}</div>
+                                    <div class="product-footer">
+                                        <span class="product-price">{{ fmt(p.price) }}</span>
+                                        <span class="stock-badge {{ stockClass(p.stock) }}">{{ stockLabel(p.stock) }}</span>
+                                    </div>
+                                    <button class="add-to-cart-btn" (click)="addToCart($event, p.id)" [disabled]="p.stock === 0"><i class="fas fa-cart-plus"></i> Add to cart</button>
+                                </div>
+                            </div>
+                        }
+                    }
+                }
+            }
+        </div>
+    </div>
+</section>
+
+<div class="cart-overlay" id="cartOverlay" [class.open]="cartOpen" (click)="toggleCart()"></div>
+<div class="cart-sidebar" id="cartSidebar" [class.open]="cartOpen">
+    <div class="cart-header">
+        <h3><i class="fas fa-shopping-cart"></i> My Cart</h3>
+        <button class="close-btn" (click)="toggleCart()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="cart-items" id="cartItems">
+        @if (!cart.length) {
+            <div class="empty-cart"><i class="fas fa-shopping-basket"></i><p>Your cart is empty</p></div>
+        } @else {
+            @for (item of cart; track item.id) {
+                <div class="cart-item">
+                    <img [src]="item.imageUrl || 'https://via.placeholder.com/100x100?text=No+Image'" [alt]="item.name" (error)="imgFallback($event, 'https://via.placeholder.com/100x100?text=Image+Missing')">
+                    <div class="cart-item-info">
+                        <div class="cart-item-name">{{ item.name }}</div>
+                        <div class="cart-item-price">{{ fmt(item.price * item.qty) }}</div>
+                        <div class="cart-item-controls">
+                            <button class="qty-btn" (click)="changeQty(item.id, -1)"><i class="fas fa-minus"></i></button>
+                            <span class="qty-display">{{ item.qty }}</span>
+                            <button class="qty-btn" (click)="changeQty(item.id, 1)"><i class="fas fa-plus"></i></button>
+                            <button class="remove-item" (click)="removeFromCart(item.id)"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+    </div>
+    <div class="cart-footer" id="cartFooter" [style.display]="cart.length ? 'block' : 'none'">
+        <div class="cart-total"><span>Total :</span><span class="total-price" id="cartTotal">{{ cart.length ? fmt(cartTotal) : '0.00 TND' }}</span></div>
+        <button class="btn-checkout" (click)="goToCheckout()"><i class="fas fa-credit-card"></i> Place Order</button>
+    </div>
+</div>
+
+<div class="modal-overlay" id="productModal" [class.open]="productModalOpen" (click)="onOverlayClick($event, 'product')">
+    <div class="modal-content"><button class="modal-close" (click)="closeModal()"><i class="fas fa-times"></i></button>
+        <div class="modal-body" id="modalBody">
+            @if (modalProduct; as p) {
+                <img class="modal-product-img" [src]="p.imageUrl || 'https://via.placeholder.com/600x400?text=No+Image'" [alt]="p.name" (error)="imgFallback($event, 'https://via.placeholder.com/600x400?text=Image+Missing')">
+                <div class="product-category">{{ p.category ? p.category.name : 'General' }}</div>
+                <div class="modal-product-name">{{ p.name }}</div>
+                <div class="modal-product-price">{{ fmt(p.price) }}</div>
+                <div class="modal-product-desc">{{ p.description || 'No description available.' }}</div>
+                <div style="margin-bottom:16px"><span class="stock-badge {{ stockClass(p.stock) }}">{{ stockLabel(p.stock) }} — {{ p.stock }} in stock</span></div>
+                <button class="modal-add-btn" (click)="addToCart($event, p.id); closeModal();" [disabled]="p.stock === 0"><i class="fas fa-cart-plus"></i> Add to cart</button>
+            }
+        </div></div>
+</div>
+
+<div class="modal-overlay" id="checkoutModal" [class.open]="checkoutOpen" (click)="onOverlayClick($event, 'checkout')">
+    <div class="modal-content checkout-modal">
+        <button class="modal-close" (click)="closeCheckoutModal()"><i class="fas fa-times"></i></button>
+        <h2><i class="fas fa-shipping-fast"></i> Complete Order</h2>
+        <div class="checkout-form">
+            <div class="form-group"><label>Full Name *</label><input type="text" id="custName" placeholder="Your Full Name" [(ngModel)]="cust.name"></div>
+            <div class="form-group"><label>Email *</label><input type="email" id="custEmail" placeholder="your@email.com" [(ngModel)]="cust.email"></div>
+            <div class="form-group"><label>Phone Number*</label><input type="tel" id="custPhone" placeholder="+216 XX XXX XXX" [(ngModel)]="cust.phone"></div>
+            <div class="form-group"><label>Delivery Address *</label><textarea id="custAddress" placeholder="Street, City, Postal Code" rows="3" [(ngModel)]="cust.address"></textarea></div>
+            <div class="order-summary" id="orderSummaryCheckout">
+                @if (summary) {
+                    <h4>Order Summary</h4>
+                    @for (i of summary.items; track i.id) {<div class="order-summary-item"><span>{{ i.name }} × {{ i.qty }}</span><span>{{ fmt(i.price * i.qty) }}</span></div>}
+                    <div class="order-total-row"><span>Total</span><span>{{ fmt(summary.total) }}</span></div>
+                }
+            </div>
+            <button class="btn-confirm" (click)="placeOrder()" [disabled]="processing">
+                @if (processing) {<i class="fas fa-spinner fa-spin"></i> Processing...} @else {<i class="fas fa-check-circle"></i> {{ confirmLabel }}}
+            </button>
+        </div>
+    </div>
+</div>
+
+<app-toast />
+
+<footer class="footer">
+    <div class="container">
+        <div class="footer-grid">
+            <div><h4><i class="fas fa-shopping-bag"></i>Miya Cosmetics</h4><p>Your trusted online store. Quality and satisfaction guaranteed</p></div>
+            <div><h4>Contact</h4><p><i class="fas fa-envelope"></i> contact&#64;shopeasy.tn</p><p><i class="fas fa-phone"></i> +216 71 000 000</p><p><i class="fas fa-map-marker-alt"></i> Tunis, Tunisie</p></div>
+            <div><h4>Navigation</h4><p><a routerLink="/">Home</a></p><p><a routerLink="/login">Login</a></p><p><a routerLink="/register">Register</a></p></div>
+        </div>
+        <div class="footer-bottom"><p>&copy; 2025-2026 Miya Cosmetics — Projet Spring Boot DSI ISET Gafsa</p></div>
+    </div>
+</footer>
